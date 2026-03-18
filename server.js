@@ -183,6 +183,7 @@ io.on('connection', (socket) => {
         timestamp: Date.now(),
         updatedBy: ownerName
       },
+      messages: [],
       users: new Set([socket.id])
     };
 
@@ -221,7 +222,8 @@ io.on('connection', (socket) => {
         isLocked: room.isLocked,
         ownerName: room.ownerName,
         roomName: room.name,
-        listenerCount: room.users.size
+        listenerCount: room.users.size,
+        messages: room.messages
       });
       io.to(roomCode).emit('listener_count', { count: room.users.size });
     } else {
@@ -286,24 +288,44 @@ io.on('connection', (socket) => {
 
   socket.on('send_message', (data) => {
     const { roomCode, message, userName, userId, replyTo } = data;
-    io.to(roomCode).emit('new_message', {
-      id: Math.random().toString(36).substr(2, 9),
-      sender: userName,
-      message,
-      timestamp: Date.now(),
-      userId,
-      replyTo
-    });
+    const room = rooms.get(roomCode);
+    if (room) {
+      const msg = {
+        id: Math.random().toString(36).substr(2, 9),
+        sender: userName,
+        message,
+        timestamp: Date.now(),
+        userId,
+        replyTo
+      };
+      
+      room.messages.push(msg);
+      if (room.messages.length > 100) room.messages.shift(); // Limit to 100
+      
+      io.to(roomCode).emit('new_message', msg);
+    }
   });
 
   socket.on('edit_message', (data) => {
     const { roomCode, messageId, newMessage } = data;
-    io.to(roomCode).emit('message_edited', { messageId, newMessage });
+    const room = rooms.get(roomCode);
+    if (room) {
+      const msg = room.messages.find(m => m.id === messageId);
+      if (msg) {
+        msg.message = newMessage;
+        msg.isEdited = true;
+      }
+      io.to(roomCode).emit('message_edited', { messageId, newMessage });
+    }
   });
 
   socket.on('delete_message', (data) => {
     const { roomCode, messageId } = data;
-    io.to(roomCode).emit('message_deleted', { messageId });
+    const room = rooms.get(roomCode);
+    if (room) {
+      room.messages = room.messages.filter(m => m.id !== messageId);
+      io.to(roomCode).emit('message_deleted', { messageId });
+    }
   });
 
   socket.on('toggle_lock', (data) => {
