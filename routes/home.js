@@ -27,41 +27,41 @@ const getMockSongs = (lang = 'English') => [
 // GET /api/v1/home
 router.get('/home', async (req, res) => {
   try {
-    const lang = req.query.lang || 'English';
-    
-    // 1. Fetch Trending Songs
-    let { data: trending, error: trendErr } = await supabase
+    const { data: songs, error } = await supabase
       .from('songs')
-      .select('*')
-      .order('trending_score', { ascending: false })
-      .limit(10);
+      .select('*, languages(name)')
+      .eq('source', 'YouTube')
+      .order('trending_score', { ascending: false });
 
-    // 2. Fetch New Releases
-    let { data: latest, error: lateErr } = await supabase
-      .from('songs')
-      .select('*')
-      .eq('language', lang)
-      .order('release_date', { ascending: false })
-      .limit(10);
+    if (error) throw error;
 
-    // If DB is empty, use mock data temporarily
-    if ((!trending || trending.length === 0) && (!latest || latest.length === 0)) {
+    // 1. Extract Head (Top 10 overall)
+    const head = songs.slice(0, 10);
+
+    // 2. Group into Sections (Body) by Language/Region
+    const sectionsMap = {};
+    songs.forEach(song => {
+      const sectionTitle = song.languages ? `Trending in ${song.languages.name}` : 'YouTube Trending';
+      if (!sectionsMap[sectionTitle]) sectionsMap[sectionTitle] = [];
+      if (sectionsMap[sectionTitle].length < 15) {
+        sectionsMap[sectionTitle].push(song);
+      }
+    });
+
+    const body = Object.keys(sectionsMap).map(title => ({
+      title,
+      items: sectionsMap[title]
+    }));
+
+    // Mock fallback if DB is still empty
+    if (songs.length === 0) {
       return res.json({
-        head: getMockSongs('Viral'),
-        body: [
-          { title: 'Trending Now', items: getMockSongs('Trending') },
-          { title: `Latest in ${lang}`, items: getMockSongs(lang) }
-        ]
+        head: [{ id: 'mock-yt-1', title: 'YouTube Trending #1', artist: 'Artist', image_url: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300', source: 'YouTube' }],
+        body: [{ title: 'YouTube Trending', items: [{ id: 'mock-yt-1', title: 'YouTube Trending #1', artist: 'Artist', image_url: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300', source: 'YouTube' }] }]
       });
     }
 
-    res.json({
-      head: trending,
-      body: [
-        { title: 'Trending Now', items: trending },
-        { title: `Latest in ${lang}`, items: latest }
-      ]
-    });
+    res.json({ head, body });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

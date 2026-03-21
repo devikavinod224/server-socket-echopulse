@@ -17,13 +17,13 @@ CREATE TABLE IF NOT EXISTS songs (
     artist TEXT NOT NULL,
     album TEXT,
     image_url TEXT,
-    streaming_url TEXT NOT NULL,
+    streaming_url TEXT, -- Nullable because playlists/albums don't have a single URL
     duration INTEGER, -- in seconds
     language_id INTEGER REFERENCES languages(id),
     genre TEXT,
     release_date DATE DEFAULT CURRENT_DATE,
-    source TEXT DEFAULT 'Saavn',
-    perma_url TEXT,
+    source TEXT DEFAULT 'YouTube',
+    perma_url TEXT UNIQUE,
     trending_score FLOAT DEFAULT 0,
     play_count BIGINT DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

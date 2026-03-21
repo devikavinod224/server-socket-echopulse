@@ -18,6 +18,20 @@ router.get('/trending', async (req, res) => {
 
     if (error) throw error;
 
+    // Mock fallback if DB is empty
+    if (data.length === 0 && page === 0) {
+      const mockTrending = [
+        { id: 'mock-1', title: 'Trending Song A', artist: 'Artist X', image_url: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300', trending_score: 100, source: 'Mock' },
+        { id: 'mock-2', title: 'Trending Song B', artist: 'Artist Y', image_url: 'https://images.unsplash.com/photo-1493225255756-d9584f8606e9?w=300', trending_score: 90, source: 'Mock' }
+      ];
+      return res.json({
+        items: mockTrending,
+        total: 2,
+        page: 0,
+        hasMore: false
+      });
+    }
+
     res.json({
       items: data,
       total: count,
