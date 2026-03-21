@@ -1,62 +1,60 @@
-# Echopulse All-In-One Backend
+# Echopulse Unified Backend 🚀
 
-This server handles both **Real-time Music Synchronization** (Group Listening) and the **Dynamic Discovery API** (Home Screen, Trending, Latest).
+The unified music infrastructure powering Echopulse Sync and Discovery.
 
----
+## 🌟 Features
 
-## 🚀 Features
+-   **Triple-Source Home Screen**: Combines content from JioSaavn, YouTube Music, and YouTube Videos.
+-   **Real-time Synchronization**: Powered by Socket.io for group listening and playback control.
+-   **Automated Content Sync**: Daily updates via GitHub Actions to keep the home screen fresh.
+-   **Play Tracking & Trending**: Atomic play count tracking and a dynamic trending algorithm.
+-   **Multi-language Support**: Deep integration with Indian and Global languages.
 
-### 1. Music Discovery (REST API)
-Provides high-quality, auto-updating music content for the Flutter app's home screen.
--   **Endpoints**:
-    -   `GET /api/v1/home?lang=Malayalam`: Fetches Carousel and Language-specific sections.
-    -   `GET /api/v1/trending`: Paginated list of top trending songs.
--   **Data Sync**: Automated script to fetch from JioSaavn API.
+## 🛠 Tech Stack
 
-### 2. Live Sync (Socket.io)
-Handles real-time room creation, shared playback, and group chat.
--   **Core Events**:
-    -   `create_room` / `join_room` / `leave_room`
-    -   `playback_event`: Syncs PLAY, PAUSE, SEEK across all users in a room.
-    -   `change_song`: Instantly updates the song for everyone.
-    -   `send_message`: Real-time group chat with edit/delete support.
-    -   `toggle_lock`: Restricts control to the room owner.
+-   **Runtime**: Node.js
+-   **Framework**: Express.js & Socket.IO
+-   **Database**: Supabase (PostgreSQL)
+-   **Scrapers**: Custom Node.js YouTube Music scraper & saavn.sumit.co API.
+-   **Automation**: GitHub Actions (crontab scheduler).
 
----
+## 🚀 Quick Start
 
-## 🛠️ Setup & Hosting
+1. **Install Dependencies**:
+   ```bash
+   npm install
+   ```
 
-### 1. Database (Supabase)
-- Run `schema.sql` in your Supabase SQL Editor to prepare the tables.
+2. **Setup Database**:
+   - Run the contents of `schema.sql` in your Supabase SQL Editor.
+   - Run the additional RPC functions provided in the documentation for Play Tracking.
 
-### 2. Configuration (`.env`)
-Create a `.env` file in this folder:
-```env
-SUPABASE_URL=your_supabase_url
-SUPABASE_ANON_KEY=your_supabase_anon_key
-PORT=3000
-```
+3. **Configure Environment**:
+   Create a `.env` file from the template:
+   ```env
+   PORT=3000
+   SUPABASE_URL=your_project_url
+   SUPABASE_ANON_KEY=your_anon_key
+   ```
 
-### 3. Installation & Data Sync
-```bash
-npm install
-node scripts/sync_music.js  # Runs once to populate your DB
-```
+4. **Sync Music**:
+   ```bash
+   node scripts/sync_music.js
+   ```
 
-### 4. Running Local
-```bash
-npm run dev
-```
+5. **Start Server**:
+   ```bash
+   npm start
+   ```
 
-### 5. Deployment (Render / Railway)
--   **Platform**: Any Node.js host (Render is free-forever, Railway is faster).
--   **Build Command**: `npm install`
--   **Start Command**: `node server.js`
--   **Environment Variables**: Ensure you copy all `.env` values to your host's dashboard.
+## 📡 API Endpoints
 
----
+-   `GET /api/v1/home`: Fetches categorized discovery content from all three sources.
+-   `GET /api/v1/trending`: Paginated list of top trending songs.
+-   `POST /api/v1/songs/:id/play`: Records a play and updates trending statistics.
 
-## 📱 Flutter Integration
-Update the `baseUrl` in your Flutter code to match your hosted URL:
--   **REST API**: `YOUR_URL/api/v1/home`
--   **Live Sync**: `YOUR_URL` (passed to Socket.io client)
+## 🤖 Automatic Updates
+This project includes a GitHub Action at `.github/workflows/sync_music.yml` that automatically refreshes the database every day at 12 AM UTC.
+
+## 📄 License
+This project is licensed under the [MIT License](LICENSE).

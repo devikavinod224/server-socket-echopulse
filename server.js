@@ -11,9 +11,11 @@ app.use(express.json()); // Add JSON body parser
 // API Routes
 const homeRoutes = require('./routes/home');
 const trendingRoutes = require('./routes/trending');
+const statsRoutes = require('./routes/stats');
 
 app.use('/api/v1', homeRoutes);
 app.use('/api/v1', trendingRoutes);
+app.use('/api/v1', statsRoutes);
 
 const server = http.createServer(app);
 const io = new Server(server, {
