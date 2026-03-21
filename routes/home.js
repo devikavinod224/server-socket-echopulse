@@ -45,8 +45,38 @@ router.get('/home', async (req, res) => {
     if (songError) throw songError;
 
     // 3. Extract Head (Top 10 highest trending)
-    const head = songs.slice(0, 10);
+    // Filter out items missing critical data first
+    const validSongs = songs.filter(s => s.image_url && s.streaming_url);
+    const head = validSongs.slice(0, 10);
     const shownIds = new Set(head.map(s => s.id));
+
+    // Helper: Disperse items by a key (e.g., artist or album) to ensure variety
+    const disperse = (items, key, maxSame = 1) => {
+      const result = [];
+      const buckets = {};
+      
+      items.forEach(item => {
+        const val = item[key] || 'Unknown';
+        if (!buckets[val]) buckets[val] = [];
+        buckets[val].push(item);
+      });
+
+      const keys = Object.keys(buckets).sort((a, b) => buckets[b].length - buckets[a].length);
+      let total = items.length;
+      
+      while (total > 0) {
+        let addedInRound = 0;
+        for (const k of keys) {
+          if (buckets[k].length > 0) {
+            result.push(buckets[k].shift());
+            total--;
+            addedInRound++;
+          }
+        }
+        if (addedInRound === 0) break;
+      }
+      return result;
+    };
 
     // 4. Implement Mixed Logic for Body
     const body = [];
@@ -56,36 +86,28 @@ router.get('/home', async (req, res) => {
 
       switch (category.title) {
         case 'Trending Now':
-          // Pure trending mix, avoiding head
-          items = songs.filter(s => !shownIds.has(s.id)).slice(0, 20);
+          items = validSongs.filter(s => !shownIds.has(s.id));
+          items = disperse(items, 'artist').slice(0, 20);
           break;
         
         case 'New Releases':
-          // Recent songs from the high-trending pool
-          items = songs
+          items = validSongs
             .filter(s => !shownIds.has(s.id))
-            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-            .slice(0, 20);
+            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+          items = disperse(items, 'artist').slice(0, 20);
           break;
 
         case 'Top Charts':
-          // Interleave Saavn and YT Music, avoiding shown
-          const saavnHits = songs.filter(s => s.source === 'Saavn' && !shownIds.has(s.id)).slice(0, 10);
-          const ytmHits = songs.filter(s => (s.source === 'YouTube_Music' || s.source === 'YouTube_Video') && !shownIds.has(s.id)).slice(0, 10);
+          const saavnHits = validSongs.filter(s => s.source === 'Saavn' && !shownIds.has(s.id)).slice(0, 10);
+          const ytmHits = validSongs.filter(s => (s.source === 'YouTube_Music' || s.source === 'YouTube_Video') && !shownIds.has(s.id)).slice(0, 10);
           for (let i = 0; i < 10; i++) {
             if (ytmHits[i]) items.push(ytmHits[i]);
             if (saavnHits[i]) items.push(saavnHits[i]);
           }
           break;
 
-        case 'Popular Categories':
-          // Diverse mix, avoiding shown
-          items = songs.filter(s => !shownIds.has(s.id)).slice(20, 40); 
-          break;
-
         default:
-          // Default to a small slice, avoiding shown
-          items = songs.filter(s => !shownIds.has(s.id)).slice(0, 15);
+          items = validSongs.filter(s => !shownIds.has(s.id)).slice(0, 15);
       }
 
       if (items.length > 0) {
@@ -105,10 +127,12 @@ router.get('/home', async (req, res) => {
 
     if (!langError && languages) {
       for (const lang of languages) {
-        const langSongs = songs
+        let langSongs = validSongs
           .filter(s => s.language_id === lang.id)
-          .sort((a, b) => b.trending_score - a.trending_score)
-          .slice(0, 20);
+          .sort((a, b) => b.trending_score - a.trending_score);
+        
+        // Apply dispersal to language sections too
+        langSongs = disperse(langSongs, 'album').slice(0, 20); // Disperse by album (thumbnails)
         
         if (langSongs.length > 0) {
           body.push({
