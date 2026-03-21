@@ -2,13 +2,15 @@ const axios = require('axios');
 const supabase = require('../utils/supabase');
 const { getMusicHome } = require('../utils/youtube_scraper');
 
+const currentYear = new Date().getFullYear(); // e.g., 2026
+
 const countries = ['IN', 'US']; 
 const saavnLanguages = [
   { name: 'Malayalam', query: 'Malayalam Top Songs' },
   { name: 'Tamil', query: 'Tamil Top Songs' },
   { name: 'Hindi', query: 'Hindi Top Songs' },
   { name: 'English', query: 'Global Billboard Hot 100' },
-  { name: 'Mixed', query: 'Indian Trending Now 2024' }
+  { name: 'Mixed', query: `Indian Trending Now ${currentYear}` }
 ];
 
 // Blacklist for devotional/old content
@@ -25,49 +27,24 @@ function isBlacklisted(text) {
 }
 
 async function syncMusic() {
-  console.log('Starting Triple-Source Unified Sync (Curation Mode)...');
+  console.log('--- STARTING TOTAL OVERHAUL SYNC (YouTube Focused) ---');
+
+  // 1. PURGE OLD RECORDS (Clean Slate)
+  console.log('Purging legacy database records to remove any remaining old content...');
+  try {
+    const { error: deleteError } = await supabase.from('songs').delete().neq('title', 'XYZ_NEVER_MATCH');
+    if (deleteError) console.error('Failed to purge:', deleteError.message);
+  } catch (e) {
+    console.warn('Purge failed/skipped:', e.message);
+  }
 
   const { data: langData } = await supabase.from('languages').select('*');
   const langMap = {};
   langData.forEach(l => langMap[l.code] = l.id);
   const getLangId = (name) => langData.find(l => l.name === name)?.id;
 
-  // --- SOURCE 1: JioSaavn (Regional) ---
-  console.log('Fetching JioSaavn Regional Trends...');
-  for (const lang of saavnLanguages) {
-    try {
-      // Simplified query for better API results, still focusing on freshness
-      const query = `${lang.name} Hits 2024 2025`;
-      const response = await axios.get(`https://saavn.sumit.co/api/search/songs?query=${encodeURIComponent(query)}&limit=30`);
-      const results = response.data?.data?.results || [];
-      const langId = getLangId(lang.name);
 
-      const songsToUpsert = results
-        .filter(song => !isBlacklisted(song.name) && !isBlacklisted(song.artist))
-        .map(song => {
-          // Boost trending score for very new songs if year is available
-          const isFresh = song.year === '2024' || song.year === '2025' || song.name.includes('2024');
-          return {
-            perma_url: song.url,
-            title: song.name,
-            artist: (song.artists?.primary || []).map(a => a.name).join(', '),
-            album: song.album?.name,
-            image_url: song.image?.[song.image.length - 1]?.url,
-            streaming_url: song.downloadUrl?.[song.downloadUrl.length - 1]?.url,
-            language_id: langId,
-            source: 'Saavn',
-            trending_score: (isFresh ? 95 : 75) + (Math.random() * 5)
-          };
-        }).filter(s => s.perma_url && s.title && s.streaming_url);
-
-      await supabase.from('songs').upsert(songsToUpsert, { onConflict: 'perma_url' });
-      console.log(`Synced ${songsToUpsert.length} matches for Saavn ${lang.name}`);
-    } catch (e) {
-      console.error(`Saavn sync failed for ${lang.name}:`, e.message);
-    }
-  }
-
-  // --- SOURCE 2 & 3: YouTube (Music & Videos) ---
+  // --- SOURCE 1: YouTube Home & Trends (Primary) ---
   for (const country of countries) {
     console.log(`Fetching YouTube Home for region: ${country}...`);
     const data = await getMusicHome(country);
@@ -76,24 +53,20 @@ async function syncMusic() {
     const uniqueSongsMap = {};
     const processItem = (item, isVideo) => {
       if (item.id && item.title) {
-        // Skip blacklisted content from YouTube as well
-        if (isBlacklisted(item.title) || isBlacklisted(item.artist)) {
-          return;
-        }
+        if (isBlacklisted(item.title) || isBlacklisted(item.artist)) return;
 
-        // Only tag as English (ID 4) if it's from the US region.
         const languageId = country === 'US' ? (langMap['en'] || 4) : null;
 
         uniqueSongsMap[item.id] = {
           perma_url: item.id,
           title: item.title,
           artist: item.artist,
-          album: isVideo ? 'YouTube Videos' : 'YouTube Music Charts',
+          album: isVideo ? `YouTube Hits ${currentYear}` : `YouTube Music Charts ${currentYear}`,
           image_url: item.image_url,
           streaming_url: item.streaming_url,
           language_id: languageId,
           source: isVideo ? 'YouTube_Video' : 'YouTube_Music',
-          trending_score: (isVideo ? 75 : 85) + (Math.random() * 15)
+          trending_score: (isVideo ? 80 : 90) + (Math.random() * 10)
         };
       }
     };
@@ -105,16 +78,46 @@ async function syncMusic() {
     });
 
     const songsToUpsert = Object.values(uniqueSongsMap);
-    const { error } = await supabase.from('songs').upsert(songsToUpsert, { onConflict: 'perma_url' });
+    await supabase.from('songs').upsert(songsToUpsert, { onConflict: 'perma_url' });
+    console.log(`Successfully synced ${songsToUpsert.length} YouTube items for ${country}`);
+  }
 
-    if (error) {
-      console.error(`Error upserting YouTube songs for ${country}:`, error.message);
-    } else {
-      console.log(`Successfully synced ${songsToUpsert.length} YouTube items for ${country}`);
+  // --- SOURCE 2: JioSaavn (Secondary - Only for Latest Hits) ---
+  console.log(`Fetching JioSaavn Regional Hits ${currentYear}...`);
+  for (const lang of saavnLanguages) {
+    try {
+      const query = `${lang.name} Songs Latest ${currentYear} hits`;
+      const response = await axios.get(`https://saavn.sumit.co/api/search/songs?query=${encodeURIComponent(query)}&limit=25`);
+      const results = response.data?.data?.results || [];
+      const langId = getLangId(lang.name);
+
+      const songsToUpsert = results
+        .filter(song => !isBlacklisted(song.name) && !isBlacklisted(song.artist))
+        .map(song => {
+          const isFresh = song.year === currentYear.toString() || song.year === (currentYear - 1).toString() || song.name.includes(currentYear.toString());
+          if (!isFresh) return null; // Skip if it's not actually fresh for current year
+          
+          return {
+            perma_url: song.url,
+            title: song.name,
+            artist: (song.artists?.primary || []).map(a => a.name).join(', '),
+            album: song.album?.name,
+            image_url: song.image?.[song.image.length - 1]?.url,
+            streaming_url: song.downloadUrl?.[song.downloadUrl.length - 1]?.url,
+            language_id: langId,
+            source: 'Saavn',
+            trending_score: 85 + (Math.random() * 5)
+          };
+        }).filter(s => s && s.perma_url && s.title && s.streaming_url);
+
+      await supabase.from('songs').upsert(songsToUpsert, { onConflict: 'perma_url' });
+      console.log(`Synced ${songsToUpsert.length} matches for Saavn ${lang.name}`);
+    } catch (e) {
+      console.error(`Saavn sync failed for ${lang.name}:`, e.message);
     }
   }
 
-  console.log('Triple-Source Unified Sync complete.');
+  console.log('Purify and Overhaul Sync complete.');
 }
 
 syncMusic().then(() => process.exit(0)).catch(err => {
