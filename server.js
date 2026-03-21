@@ -35,7 +35,7 @@ const getStatusPage = () => `
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Echopulse Sync | Status</title>
+    <title>Echopulse Unified | Status</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -67,7 +67,7 @@ const getStatusPage = () => `
             border: 1px solid var(--border);
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
             animation: fadeIn 1s ease-out;
-            max-width: 400px;
+            max-width: 450px;
             width: 90%;
         }
         @keyframes fadeIn {
@@ -112,14 +112,16 @@ const getStatusPage = () => `
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 1rem;
-            margin-top: 2rem;
+            margin-top: 1rem;
         }
         .stat-card {
             background: rgba(255, 255, 255, 0.03);
-            padding: 1rem;
+            padding: 1.25rem;
             border-radius: 15px;
             border: 1px solid var(--border);
+            transition: transform 0.3s ease;
         }
+        .stat-card:hover { transform: translateY(-5px); background: rgba(255, 255, 255, 0.06); }
         .stat-value {
             font-size: 1.5rem;
             font-weight: 600;
@@ -130,33 +132,49 @@ const getStatusPage = () => `
             opacity: 0.5;
             text-transform: uppercase;
             margin-top: 0.2rem;
+            letter-spacing: 1px;
         }
         .footer {
             margin-top: 2.5rem;
             font-size: 0.8rem;
             opacity: 0.4;
+            line-height: 1.6;
+        }
+        .api-tag {
+            background: rgba(79, 172, 254, 0.1);
+            color: var(--accent2);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            margin-left: 5px;
+            border: 1px solid rgba(79, 172, 254, 0.2);
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="logo">Echopulse Sync</div>
+        <div class="logo">Echopulse Unified</div>
         <div class="status-badge">
             <div class="pulse"></div>
-            Server Operational
+            All Core Systems Operational
         </div>
         <div class="stats">
             <div class="stat-card">
                 <div class="stat-value">${rooms.size}</div>
-                <div class="stat-label">Active Rooms</div>
+                <div class="stat-label">Active Sync Rooms</div>
             </div>
             <div class="stat-card">
                 <div class="stat-value">${io.engine.clientsCount}</div>
-                <div class="stat-label">Connected Users</div>
+                <div class="stat-label">Live Listeners</div>
+            </div>
+            <div class="stat-card" style="grid-column: span 2;">
+                <div class="stat-value">Active <span class="api-tag">REST v1.0</span></div>
+                <div class="stat-label">Music Discovery Engine</div>
             </div>
         </div>
         <div class="footer">
-            Real-time Music Engine | Low Latency WebSocket v2.0
+            Unified Music Infrastructure | Low Latency WebSocket + REST API<br>
+            Powered by Supabase & Node.js
         </div>
     </div>
 </body>
