@@ -4,9 +4,9 @@ const { getMusicHome } = require('../utils/youtube_scraper');
 
 const countries = ['IN', 'US']; 
 const saavnLanguages = [
-  { name: 'Malayalam', query: 'Malayalam trending' },
-  { name: 'Tamil', query: 'Tamil trending' },
-  { name: 'Hindi', query: 'Hindi trending' }
+  { name: 'Malayalam', query: 'Malayalam top songs' },
+  { name: 'Tamil', query: 'Tamil top songs' },
+  { name: 'Hindi', query: 'Hindi top songs' }
 ];
 
 async function syncMusic() {
@@ -53,6 +53,10 @@ async function syncMusic() {
     const uniqueSongsMap = {};
     const processItem = (item, isVideo) => {
       if (item.id && item.title) {
+        // Only tag as English (ID 4) if it's from the US region.
+        // For India (IN), leave language_id null by default so it doesn't pollute specific language filters.
+        const languageId = country === 'US' ? (langMap['en'] || 4) : null;
+
         uniqueSongsMap[item.id] = {
           perma_url: item.id,
           title: item.title,
@@ -60,7 +64,7 @@ async function syncMusic() {
           album: isVideo ? 'YouTube Videos' : 'YouTube Music Charts',
           image_url: item.image_url,
           streaming_url: item.streaming_url,
-          language_id: langMap[country.toLowerCase()] || langMap['en'],
+          language_id: languageId,
           source: isVideo ? 'YouTube_Video' : 'YouTube_Music',
           trending_score: 70 + (Math.random() * 30)
         };
