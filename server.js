@@ -6,6 +6,14 @@ require('dotenv').config();
 
 const app = express();
 app.use(cors());
+app.use(express.json()); // Add JSON body parser
+
+// API Routes
+const homeRoutes = require('./routes/home');
+const trendingRoutes = require('./routes/trending');
+
+app.use('/api/v1', homeRoutes);
+app.use('/api/v1', trendingRoutes);
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -228,6 +236,27 @@ io.on('connection', (socket) => {
       io.to(roomCode).emit('listener_count', { count: room.users.size });
     } else {
       socket.emit('error_msg', { message: 'Room not found' });
+    }
+  });
+
+  socket.on('leave_room', (data) => {
+    const { roomCode } = data;
+    const room = rooms.get(roomCode);
+    if (room) {
+      room.users.delete(socket.id);
+      socket.leave(roomCode);
+      console.log(`User explicitly left room: ${roomCode}`);
+      
+      if (room.users.size === 0) {
+        const timer = setTimeout(() => {
+          rooms.delete(roomCode);
+          roomWaitTimers.delete(roomCode);
+          console.log(`Room ${roomCode} removed after empty leave`);
+        }, 15000); // Shorter 15s for explicit leave
+        roomWaitTimers.set(roomCode, timer);
+      } else {
+        io.to(roomCode).emit('listener_count', { count: room.users.size });
+      }
     }
   });
 
