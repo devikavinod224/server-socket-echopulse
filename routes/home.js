@@ -30,34 +30,29 @@ router.get('/home', async (req, res) => {
     const { data: songs, error } = await supabase
       .from('songs')
       .select('*, languages(name)')
-      .eq('source', 'YouTube')
-      .order('trending_score', { ascending: false });
+      .order('trending_score', { ascending: false })
+      .limit(100);
 
     if (error) throw error;
 
-    // 1. Extract Head (Top 10 overall)
+    // 1. Extract Head (Top items from any source)
     const head = songs.slice(0, 10);
 
-    // 2. Group into Sections (Body) by Language/Region
-    const sectionsMap = {};
-    songs.forEach(song => {
-      const sectionTitle = song.languages ? `Trending in ${song.languages.name}` : 'YouTube Trending';
-      if (!sectionsMap[sectionTitle]) sectionsMap[sectionTitle] = [];
-      if (sectionsMap[sectionTitle].length < 15) {
-        sectionsMap[sectionTitle].push(song);
-      }
-    });
+    // 2. Group into specialized sections by Source
+    const saavnItems = songs.filter(s => s.source === 'Saavn').slice(0, 15);
+    const ytMusicItems = songs.filter(s => s.source === 'YouTube_Music').slice(0, 15);
+    const ytVideoItems = songs.filter(s => s.source === 'YouTube_Video').slice(0, 15);
 
-    const body = Object.keys(sectionsMap).map(title => ({
-      title,
-      items: sectionsMap[title]
-    }));
+    const body = [];
+    if (saavnItems.length > 0) body.push({ title: 'Regional Premium Hits (Saavn)', items: saavnItems });
+    if (ytMusicItems.length > 0) body.push({ title: 'Global Music Charts (YT Music)', items: ytMusicItems });
+    if (ytVideoItems.length > 0) body.push({ title: 'Trending Music Videos (YouTube)', items: ytVideoItems });
 
-    // Mock fallback if DB is still empty
-    if (songs.length === 0) {
+    // Fallback if no data
+    if (body.length === 0) {
       return res.json({
-        head: [{ id: 'mock-yt-1', title: 'YouTube Trending #1', artist: 'Artist', image_url: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300', source: 'YouTube' }],
-        body: [{ title: 'YouTube Trending', items: [{ id: 'mock-yt-1', title: 'YouTube Trending #1', artist: 'Artist', image_url: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300', source: 'YouTube' }] }]
+        head: [{ id: 'mock-1', title: 'Loading...', artist: 'Please run sync', image_url: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300' }],
+        body: [{ title: 'No Content Found', items: [] }]
       });
     }
 
