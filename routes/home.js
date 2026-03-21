@@ -105,7 +105,6 @@ router.get('/home', async (req, res) => {
 
     if (!langError && languages) {
       for (const lang of languages) {
-        // Find top trending songs for this specific language
         const langSongs = songs
           .filter(s => s.language_id === lang.id)
           .sort((a, b) => b.trending_score - a.trending_score)
@@ -121,15 +120,37 @@ router.get('/home', async (req, res) => {
       }
     }
 
+    // 6. Helper to format for Flutter
+    const formatForFlutter = (song) => ({
+      id: song.perma_url || song.id,
+      title: song.title,
+      subtitle: song.artist,
+      image: song.image_url,
+      type: 'video', 
+      isWide: false,
+      count: song.source === 'Saavn' ? 'Premium' : 'Trending',
+      extras: {
+        source: song.source,
+        url: song.streaming_url
+      }
+    });
+
+    // 7. Map Final Output
+    const headFormatted = head.map(formatForFlutter);
+    const bodyFormatted = body.map(section => ({
+      ...section,
+      items: section.items.map(formatForFlutter)
+    }));
+
     // Fallback if no data
-    if (body.length === 0) {
+    if (bodyFormatted.length === 0) {
       return res.json({
-        head: [{ id: 'mock-1', title: 'Loading...', artist: 'Please run sync', image_url: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300' }],
+        head: [formatForFlutter({ id: 'mock-1', title: 'Loading...', artist: 'Please run sync', image_url: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=300' })],
         body: [{ title: 'No Content Found', items: [] }]
       });
     }
 
-    res.json({ head, body });
+    res.json({ head: headFormatted, body: bodyFormatted });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

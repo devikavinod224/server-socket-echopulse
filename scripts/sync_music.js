@@ -11,8 +11,21 @@ const saavnLanguages = [
   { name: 'Mixed', query: 'Indian Trending Now 2024' }
 ];
 
+// Blacklist for devotional/old content
+const BLACKLIST = [
+  'devotional', 'bhajan', 'ghazal', 'classic', 'old', '1990', '1980', '1970', '1960', '1950',
+  'god', 'ayyappa', 'lord', 'jesus', 'allah', 'hindu', 'christian', 'muslim', 'prayer', 'mantra',
+  'shiva', 'krishna', 'ganesha', 'ram', 'hanuman', 'stotram', 'suprabhatam', 'vintage'
+];
+
+function isBlacklisted(text) {
+  if (!text) return false;
+  const lower = text.toLowerCase();
+  return BLACKLIST.some(word => lower.includes(word));
+}
+
 async function syncMusic() {
-  console.log('Starting Triple-Source Unified Sync...');
+  console.log('Starting Triple-Source Unified Sync (Curation Mode)...');
 
   const { data: langData } = await supabase.from('languages').select('*');
   const langMap = {};
@@ -23,21 +36,29 @@ async function syncMusic() {
   console.log('Fetching JioSaavn Regional Trends...');
   for (const lang of saavnLanguages) {
     try {
-      const response = await axios.get(`https://saavn.sumit.co/api/search/songs?query=${encodeURIComponent(lang.query)}&limit=15`);
+      // Simplified query for better API results, still focusing on freshness
+      const query = `${lang.name} Hits 2024 2025`;
+      const response = await axios.get(`https://saavn.sumit.co/api/search/songs?query=${encodeURIComponent(query)}&limit=30`);
       const results = response.data?.data?.results || [];
       const langId = getLangId(lang.name);
 
-      const songsToUpsert = results.map(song => ({
-        perma_url: song.url,
-        title: song.name,
-        artist: (song.artists?.primary || []).map(a => a.name).join(', '),
-        album: song.album?.name,
-        image_url: song.image?.[song.image.length - 1]?.url,
-        streaming_url: song.downloadUrl?.[song.downloadUrl.length - 1]?.url,
-        language_id: langId,
-        source: 'Saavn',
-        trending_score: 80 + (Math.random() * 20)
-      })).filter(s => s.perma_url && s.title);
+      const songsToUpsert = results
+        .filter(song => !isBlacklisted(song.name) && !isBlacklisted(song.artist))
+        .map(song => {
+          // Boost trending score for very new songs if year is available
+          const isFresh = song.year === '2024' || song.year === '2025' || song.name.includes('2024');
+          return {
+            perma_url: song.url,
+            title: song.name,
+            artist: (song.artists?.primary || []).map(a => a.name).join(', '),
+            album: song.album?.name,
+            image_url: song.image?.[song.image.length - 1]?.url,
+            streaming_url: song.downloadUrl?.[song.downloadUrl.length - 1]?.url,
+            language_id: langId,
+            source: 'Saavn',
+            trending_score: (isFresh ? 95 : 75) + (Math.random() * 5)
+          };
+        }).filter(s => s.perma_url && s.title && s.streaming_url);
 
       await supabase.from('songs').upsert(songsToUpsert, { onConflict: 'perma_url' });
       console.log(`Synced ${songsToUpsert.length} matches for Saavn ${lang.name}`);
@@ -55,8 +76,12 @@ async function syncMusic() {
     const uniqueSongsMap = {};
     const processItem = (item, isVideo) => {
       if (item.id && item.title) {
+        // Skip blacklisted content from YouTube as well
+        if (isBlacklisted(item.title) || isBlacklisted(item.artist)) {
+          return;
+        }
+
         // Only tag as English (ID 4) if it's from the US region.
-        // For India (IN), leave language_id null by default so it doesn't pollute specific language filters.
         const languageId = country === 'US' ? (langMap['en'] || 4) : null;
 
         uniqueSongsMap[item.id] = {
@@ -68,7 +93,7 @@ async function syncMusic() {
           streaming_url: item.streaming_url,
           language_id: languageId,
           source: isVideo ? 'YouTube_Video' : 'YouTube_Music',
-          trending_score: 70 + (Math.random() * 30)
+          trending_score: (isVideo ? 75 : 85) + (Math.random() * 15)
         };
       }
     };
