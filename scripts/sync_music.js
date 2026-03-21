@@ -26,6 +26,36 @@ function isBlacklisted(text) {
   return BLACKLIST.some(word => lower.includes(word));
 }
 
+function cleanTitle(title) {
+  if (!title) return '';
+  let cleaned = title;
+  
+  // Remove everything in brackets () or []
+  cleaned = cleaned.replace(/\s*[\(\[].*?[\)\]]\s*/g, ' ');
+  
+  // Remove text following a pipe |
+  cleaned = cleaned.split('|')[0];
+  
+  // Remove "ft.", "feat.", "featuring" and anything after it
+  cleaned = cleaned.replace(/\s+(ft\.|feat\.|featuring)\s+.*$/i, '');
+  
+  // Remove generic video/audio tags
+  const removeWords = [
+    'official video', 'official music video', 'official audio', 'lyric video', 
+    'lyrics video', 'full video song', 'full video', 'full song', 'video song',
+    'audio song', 'music video'
+  ];
+  removeWords.forEach(word => {
+    const reg = new RegExp(word, 'gi');
+    cleaned = cleaned.replace(reg, '');
+  });
+
+  // Clean up any double spaces, trailing hyphens, etc left behind
+  cleaned = cleaned.replace(/\s+/g, ' ').replace(/\s+-\s*$/, '').trim();
+
+  return cleaned;
+}
+
 async function syncMusic() {
   console.log('--- STARTING TOTAL OVERHAUL SYNC (YouTube Focused) ---');
 
@@ -59,7 +89,7 @@ async function syncMusic() {
 
         uniqueSongsMap[item.id] = {
           perma_url: item.id,
-          title: item.title,
+          title: cleanTitle(item.title),
           artist: item.artist,
           album: isVideo ? `YouTube Hits ${currentYear}` : `YouTube Music Charts ${currentYear}`,
           image_url: item.image_url,
@@ -99,7 +129,7 @@ async function syncMusic() {
           
           return {
             perma_url: song.url,
-            title: song.name,
+            title: cleanTitle(song.name),
             artist: (song.artists?.primary || []).map(a => a.name).join(', '),
             album: song.album?.name,
             image_url: song.image?.[song.image.length - 1]?.url,
