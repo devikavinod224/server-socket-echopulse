@@ -35,12 +35,12 @@ router.get('/home', async (req, res) => {
 
     if (catError) throw catError;
 
-    // 2. Fetch plenty of songs to mix
+    // 2. Fetch plenty of songs for the Home Screen
     const { data: songs, error: songError } = await supabase
       .from('songs')
       .select('*, languages(name)')
       .order('trending_score', { ascending: false })
-      .limit(200);
+      .limit(250);
 
     if (songError) throw songError;
 
@@ -61,8 +61,8 @@ router.get('/home', async (req, res) => {
           break;
         
         case 'New Releases':
-          // Sort by date, then slice, avoiding shown
-          items = [...songs]
+          // Recent songs from the high-trending pool
+          items = songs
             .filter(s => !shownIds.has(s.id))
             .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
             .slice(0, 20);
@@ -71,7 +71,7 @@ router.get('/home', async (req, res) => {
         case 'Top Charts':
           // Interleave Saavn and YT Music, avoiding shown
           const saavnHits = songs.filter(s => s.source === 'Saavn' && !shownIds.has(s.id)).slice(0, 10);
-          const ytmHits = songs.filter(s => s.source === 'YouTube_Music' && !shownIds.has(s.id)).slice(0, 10);
+          const ytmHits = songs.filter(s => (s.source === 'YouTube_Music' || s.source === 'YouTube_Video') && !shownIds.has(s.id)).slice(0, 10);
           for (let i = 0; i < 10; i++) {
             if (ytmHits[i]) items.push(ytmHits[i]);
             if (saavnHits[i]) items.push(saavnHits[i]);
@@ -105,15 +105,16 @@ router.get('/home', async (req, res) => {
 
     if (!langError && languages) {
       for (const lang of languages) {
-        // For language sections, we allow some repetition from trending as they are filtered by lang
+        // Find top trending songs for this specific language
         const langSongs = songs
           .filter(s => s.language_id === lang.id)
-          .slice(0, 15);
+          .sort((a, b) => b.trending_score - a.trending_score)
+          .slice(0, 20);
         
         if (langSongs.length > 0) {
           body.push({
             id: `lang-${lang.id}`,
-            title: `${lang.name} Hits`,
+            title: `${lang.name} Popular Hits`,
             items: langSongs
           });
         }

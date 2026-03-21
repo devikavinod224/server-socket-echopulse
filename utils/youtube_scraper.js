@@ -84,18 +84,19 @@ async function formatHomeSections(items) {
         id: `youtube${model.contentId}`,
         title: metadata?.title?.content || 'Unknown',
         artist: metadata?.metadata?.contentMetadataViewModel?.metadataRows?.[0]?.metadataParts?.[0]?.text?.content || 'Various Artists',
-        image_url: imageSources[0]?.url,
+        image_url: imageSources[imageSources.length - 1]?.url,
         streaming_url: null, // Usually a playlist/album
         source: 'YouTube',
         type: 'playlist'
       });
     } else if (e.gridPlaylistRenderer) {
       const renderer = e.gridPlaylistRenderer;
+      const thumbnails = renderer.thumbnail?.thumbnails || [];
       result.push({
         id: `youtube${renderer.navigationEndpoint?.watchEndpoint?.playlistId}`,
         title: renderer.title?.runs?.[0]?.text || 'Unknown',
         artist: renderer.shortBylineText?.runs?.[0]?.text || 'YouTube Music',
-        image_url: renderer.thumbnail?.thumbnails?.[0]?.url,
+        image_url: thumbnails[thumbnails.length - 1]?.url,
         streaming_url: null,
         source: 'YouTube',
         type: 'playlist'

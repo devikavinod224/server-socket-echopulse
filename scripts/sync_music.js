@@ -4,9 +4,11 @@ const { getMusicHome } = require('../utils/youtube_scraper');
 
 const countries = ['IN', 'US']; 
 const saavnLanguages = [
-  { name: 'Malayalam', query: 'Malayalam top songs' },
-  { name: 'Tamil', query: 'Tamil top songs' },
-  { name: 'Hindi', query: 'Hindi top songs' }
+  { name: 'Malayalam', query: 'Malayalam Top Songs' },
+  { name: 'Tamil', query: 'Tamil Top Songs' },
+  { name: 'Hindi', query: 'Hindi Top Songs' },
+  { name: 'English', query: 'Global Billboard Hot 100' },
+  { name: 'Mixed', query: 'Indian Trending Now 2024' }
 ];
 
 async function syncMusic() {
