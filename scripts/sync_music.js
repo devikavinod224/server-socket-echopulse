@@ -35,17 +35,25 @@ async function syncMusic() {
 
     console.log(`Processing ${allSongs.length} items for ${country}...`);
 
-    const songsToUpsert = allSongs.map(song => ({
-      perma_url: song.id, // Using the youtubeID as the unique perma_url
-      title: song.title,
-      artist: song.artist,
-      album: 'YouTube Trending',
-      image_url: song.image_url,
-      streaming_url: song.streaming_url,
-      language_id: langMap[country.toLowerCase()] || langMap['en'] || (langData[0] ? langData[0].id : null),
-      source: 'YouTube',
-      trending_score: Math.random() * 100 // We could use actual view counts if parsed
-    })).filter(s => s.perma_url && s.title);
+    // Deduplicate songs by perma_url before upserting to prevent Supabase errors
+    const uniqueSongsMap = {};
+    allSongs.forEach(song => {
+      if (song.id && song.title) {
+        uniqueSongsMap[song.id] = {
+          perma_url: song.id,
+          title: song.title,
+          artist: song.artist,
+          album: 'YouTube Trending',
+          image_url: song.image_url,
+          streaming_url: song.streaming_url,
+          language_id: langMap[country.toLowerCase()] || langMap['en'] || (langData[0] ? langData[0].id : null),
+          source: 'YouTube',
+          trending_score: Math.random() * 100
+        };
+      }
+    });
+
+    const songsToUpsert = Object.values(uniqueSongsMap);
 
     const { error } = await supabase
       .from('songs')
